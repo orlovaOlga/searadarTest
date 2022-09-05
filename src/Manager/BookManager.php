@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 
 namespace App\Manager;
 
@@ -8,6 +9,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class BookManager
 {
+    const DEFAULT_PAGINATION_LIMIT = 20;
+
     private EntityManagerInterface $entityManager;
 
     public function __construct(EntityManagerInterface $entityManager)
@@ -77,5 +80,16 @@ class BookManager
         $this->entityManager->flush();
 
         return $book;
+    }
+
+    /**
+     * @return Book[]
+     */
+    public function searchBooks(?string $title, ?string $author, int $page, int $perPage): array
+    {
+        /** @var BookRepository $bookRepository */
+        $bookRepository = $this->entityManager->getRepository(Book::class);
+
+        return $bookRepository->searchBooks($title, $author, $page, $perPage);
     }
 }

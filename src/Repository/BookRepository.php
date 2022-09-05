@@ -39,6 +39,32 @@ class BookRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * @return Book[]
+     */
+    public function searchBooks(?string $title, ?string $author, int $page, int $perPage): array
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        $qb->select('b')
+            ->from($this->getClassName(), 'b');
+
+        if (!empty($title)) {
+            $qb->andWhere('b.title LIKE :title');
+            $qb->setParameter('title', "%$title%");
+        }
+
+        if (!empty($author)) {
+            $qb->andWhere('b.author LIKE :author');
+            $qb->setParameter('author', "%$author%");
+        }
+
+        $qb->orderBy('b.title, b.author', 'DESC')
+            ->setFirstResult($perPage * $page)
+            ->setMaxResults($perPage);
+
+        return $qb->getQuery()->getResult();
+    }
+
 //    /**
 //     * @return Book[] Returns an array of Book objects
 //     */
