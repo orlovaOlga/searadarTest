@@ -2,21 +2,23 @@
 
 namespace App\Entity;
 
-use App\Repository\BookRepository;
+use App\Repository\AuthorRepository;
 use DateTime;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 
 /**
  * @ORM\Table(
- *     name="`book`",
+ *     name="`author`",
  *     indexes={
- *         @ORM\Index(name="title", columns={"title"})
+ *         @ORM\Index(name="name", columns={"name"})
  *     }
  * )
- * @ORM\Entity(repositoryClass=BookRepository::class)
+ * @ORM\Entity(repositoryClass=AuthorRepository::class)
  */
-class Book
+class Author
 {
     /**
      * @ORM\Column(name="id", type="bigint", unique=true)
@@ -27,14 +29,16 @@ class Book
 
     /**
      * @ORM\Column(type="string", length=255)
+     *
      */
-    private string $title;
+    private string $name;
 
     /**
-     * @ORM\ManyToOne(targetEntity="Author")
-     * @ORM\JoinColumn(name="author_id", referencedColumnName="id")
+     * @var ArrayCollection
+     *
+     * @ORM\OneToMany(targetEntity="Book", mappedBy="author")
      */
-    private Author $author;
+    private $books;
 
     /**
      * @ORM\Column(name="created_at", type="datetime", nullable=false)
@@ -53,28 +57,22 @@ class Book
         return $this->id;
     }
 
-    public function getTitle(): string
+
+    public function getName(): string
     {
-        return $this->title;
+        return $this->name;
     }
 
-    public function setTitle(string $title): self
+    public function setName(string $name): self
     {
-        $this->title = $title;
+        $this->name = $name;
 
         return $this;
     }
 
-    public function getAuthor(): Author
+    public function getBooks(): Collection
     {
-        return $this->author;
-    }
-
-    public function setAuthor(Author $author): self
-    {
-        $this->author = $author;
-
-        return $this;
+        return $this->books;
     }
 
     public function getCreatedAt(): DateTime {
@@ -97,8 +95,7 @@ class Book
     {
         return [
             'id' => $this->id,
-            'title' => $this->title,
-            'author' => $this->author->getName()
+            'name' => $this->name,
         ];
     }
 }
