@@ -4,6 +4,8 @@ namespace App\Controller\Api\v1;
 
 use App\Entity\Book;
 use App\Manager\BookManager;
+use App\Repository\BookRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -91,7 +93,15 @@ class BookController extends AbstractController
         $perPage = $request->query->get('perPage');
         $page = $request->query->get('page');
 
-        $books = $this->bookManager->searchBooks($title, $author, $page ?? 0, $perPage ?? BookManager::DEFAULT_PAGINATION_LIMIT);
+        if ($page < 1) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'page parameter should be above 0'
+            ],
+                Response::HTTP_BAD_REQUEST);
+        }
+
+        $books = $this->bookManager->searchBooks($title, $author, $page ?? 1, $perPage ?? BookManager::DEFAULT_PAGINATION_LIMIT);
 
         [$data, $code] = !$books ?
             [
@@ -105,6 +115,32 @@ class BookController extends AbstractController
                 [
                     'success' => true,
                     'books' => array_map(static fn(Book $book) => $book->toArray(), $books)
+                ], Response::HTTP_OK
+            ];
+
+        return new JsonResponse($data, $code);
+    }
+
+    /**
+     * @Route("/random",name="get_random_book", methods={"GET"})
+     */
+    public function getRandomBookAction(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        /** @var BookRepository $bookRepository */
+        $bookRepository = $entityManager->getRepository(Book::class);
+        $book = $bookRepository->getRandomBook();
+
+        [$data, $code] = !$book ?
+            [
+                [
+                    'success' => false,
+                ],
+                Response::HTTP_NOT_FOUND
+            ] :
+            [
+                [
+                    'success' => true,
+                    'book' => $book->toArray()
                 ], Response::HTTP_OK
             ];
 

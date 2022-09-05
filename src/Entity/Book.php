@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Repository\BookRepository;
 use DateTime;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Gedmo\Mapping\Annotation as Gedmo;
 
@@ -31,10 +33,18 @@ class Book
     private string $title;
 
     /**
-     * @ORM\ManyToOne(targetEntity="Author")
-     * @ORM\JoinColumn(name="author_id", referencedColumnName="id")
+     * @ORM\ManyToMany(targetEntity="Author", inversedBy="books")
+     * @ORM\JoinTable(
+     *     name="author_to_book",
+     *     joinColumns={
+     *          @ORM\JoinColumn(name="book_id", referencedColumnName="id")
+     *     },
+     *     inverseJoinColumns={
+     *          @ORM\JoinColumn(name="author_id", referencedColumnName="id")
+     *     }
+     * )
      */
-    private Author $author;
+    private Collection $authors;
 
     /**
      * @ORM\Column(name="created_at", type="datetime", nullable=false)
@@ -47,6 +57,11 @@ class Book
      * @Gedmo\Timestampable(on="update")
      */
     private DateTime $updatedAt;
+
+    public function __construct()
+    {
+        $this->author = new ArrayCollection();
+    }
 
     public function getId(): int
     {
@@ -65,14 +80,30 @@ class Book
         return $this;
     }
 
-    public function getAuthor(): Author
+    public function getAuthors(): Collection
     {
-        return $this->author;
+        return $this->authors;
     }
 
-    public function setAuthor(Author $author): self
+    public function hasAuthor(Author $author): bool
     {
-        $this->author = $author;
+        return $this->authors->contains($author);
+    }
+
+    public function addAuthor(Author $author): self
+    {
+        if(!$this->hasAuthor($author)){
+            $this->authors->add($author);
+        }
+
+        return $this;
+    }
+
+    public function removeAuthor(Author $author): self
+    {
+        if($this->hasAuthor($author)){
+            $this->authors->remove($author);
+        }
 
         return $this;
     }
@@ -98,7 +129,10 @@ class Book
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'author' => $this->author->getName()
+            'authors' => array_map(static fn($author) => [
+                'id' => $author->getId(),
+                'name' => $author->getName()
+            ], $this->getAuthors()->getValues())
         ];
     }
 }

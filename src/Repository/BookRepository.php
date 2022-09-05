@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Book;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -44,49 +45,36 @@ class BookRepository extends ServiceEntityRepository
      */
     public function searchBooks(?string $title, ?string $author, int $page, int $perPage): array
     {
-        $qb = $this->getEntityManager()->createQueryBuilder();
-        $qb->select('b')
-            ->from($this->getClassName(), 'b');
+        $rsm = new ResultSetMappingBuilder($this->getEntityManager());
+        $rsm->addRootEntityFromClassMetadata(Book::class, 'alias');
 
-        if (!empty($title)) {
-            $qb->andWhere('b.title LIKE :title');
-            $qb->setParameter('title', "%$title%");
-        }
+        $sql = "SELECT b.* FROM author_to_book
+                    LEFT JOIN author a on author_to_book.author_id = a.id
+                    LEFT JOIN book b on author_to_book.book_id = b.id
+                WHERE b.title LIKE :title AND a.name LIKE :name
+                    GROUP BY book_id
+                    ORDER BY b.title
+                LIMIT :perPage OFFSET :offset";
 
-        if (!empty($author)) {
-            $qb->andWhere('b.author LIKE :author');
-            $qb->setParameter('author', "%$author%");
-        }
+        $nativeQuery = $this->getEntityManager()->createNativeQuery($sql, $rsm);
+        $nativeQuery->setParameters(
+            [
+                'title' => "%$title%",
+                'name' => "%$author%",
+                'perPage' => $perPage,
+                'offset' => ($page - 1) * $perPage,
+            ]);
 
-        $qb->orderBy('b.title, b.author', 'DESC')
-            ->setFirstResult($perPage * $page)
-            ->setMaxResults($perPage);
-
-        return $qb->getQuery()->getResult();
+        return $nativeQuery->getResult();
     }
 
-//    /**
-//     * @return Book[] Returns an array of Book objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('b')
-//            ->andWhere('b.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('b.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    public function getRandomBook(): ?Book
+    {
+        $rsm = new ResultSetMappingBuilder($this->getEntityManager());
+        $rsm->addRootEntityFromClassMetadata(Book::class, 'alias');
 
-//    public function findOneBySomeField($value): ?Book
-//    {
-//        return $this->createQueryBuilder('b')
-//            ->andWhere('b.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+        $nativeQuery = $this->getEntityManager()->createNativeQuery('SELECT * FROM book ORDER BY rand() ASC LIMIT 1', $rsm);
+
+        return $nativeQuery->getOneOrNullResult();
+    }
 }

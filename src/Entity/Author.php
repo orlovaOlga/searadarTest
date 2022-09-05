@@ -36,7 +36,7 @@ class Author
     /**
      * @var ArrayCollection
      *
-     * @ORM\OneToMany(targetEntity="Book", mappedBy="author")
+     * @ORM\ManyToMany(targetEntity="Book", mappedBy="author")
      */
     private $books;
 
