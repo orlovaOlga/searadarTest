@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Repository;
 
@@ -18,6 +19,7 @@ use Doctrine\Persistence\ManagerRegistry;
 class BookRepository extends ServiceEntityRepository
 {
     const DEFAULT_PAGINATION_LIMIT = 20;
+    const DEFAULT_PAGE_NUMBER = 1;
 
     public function __construct(ManagerRegistry $registry)
     {

@@ -20,7 +20,7 @@ class BookManager
         $this->authorManager = $authorManager;
     }
 
-    public function createBook(string $title, ?string $existedAuthors, ?string $authorNames): ?int
+    public function createBook(string $title, ?string $existedAuthors, ?string $authorNames): ?Book
     {
         $book = new Book();
         $book->setTitle($title);
@@ -41,7 +41,7 @@ class BookManager
                 try {
                     $author = $this->authorManager->getAuthorById((int)$id);
                 } catch (\Exception) {
-                    throw new \InvalidArgumentException(sprintf('Invalid id "%s"', $id));
+                    throw new \InvalidArgumentException(sprintf('Invalid id %s', $id));
                 }
 
                 $book->addAuthor($author);
@@ -52,7 +52,7 @@ class BookManager
         $this->entityManager->persist($book);
         $this->entityManager->flush();
 
-        return $book->getId();
+        return $book;
     }
 
     public function getBookById(int $bookId): Book|bool
@@ -116,7 +116,7 @@ class BookManager
                 try {
                     $author = $this->authorManager->getAuthorById((int)$id);
                 } catch (\Exception) {
-                    throw new \InvalidArgumentException(sprintf('Invalid author id "%s"', $id));
+                    throw new \InvalidArgumentException(sprintf('Invalid author id %s', $id));
                 }
 
                 $book->addAuthor($author);
@@ -134,10 +134,14 @@ class BookManager
                 try {
                     $author = $this->authorManager->getAuthorById((int)$id);
                 } catch (EntityNotFoundException) {
-                    throw new \InvalidArgumentException(sprintf('Invalid author id "%s"', $id));
+                    throw new \InvalidArgumentException(sprintf('Invalid author id %s', $id));
                 }
 
-                $book->removeAuthor($author);
+                if($book->hasAuthor($author)){
+                    $book->removeAuthor($author);
+                } else {
+                    throw new \InvalidArgumentException(sprintf('Book does not have author %s', $author->getName()));
+                }
             }
         }
 
