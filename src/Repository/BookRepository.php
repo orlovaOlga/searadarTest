@@ -17,6 +17,8 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class BookRepository extends ServiceEntityRepository
 {
+    const DEFAULT_PAGINATION_LIMIT = 20;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Book::class);
@@ -43,7 +45,7 @@ class BookRepository extends ServiceEntityRepository
     /**
      * @return Book[]
      */
-    public function searchBooks(?string $title, ?string $author, int $page, int $perPage): array
+    public function searchBooksWithPagination(?string $title, ?string $author, int $page, int $perPage): array
     {
         $rsm = new ResultSetMappingBuilder($this->getEntityManager());
         $rsm->addRootEntityFromClassMetadata(Book::class, 'alias');
