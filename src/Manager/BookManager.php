@@ -1,16 +1,15 @@
 <?php
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace App\Manager;
 
 use App\Entity\Book;
 use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\EntityNotFoundException;
 
 class BookManager
 {
-    const DEFAULT_PAGINATION_LIMIT = 20;
-
     private EntityManagerInterface $entityManager;
 
     private AuthorManager $authorManager;
@@ -21,17 +20,34 @@ class BookManager
         $this->authorManager = $authorManager;
     }
 
-    public function saveBook(string $title, string $authorNames): ?int
+    public function createBook(string $title, ?string $existedAuthors, ?string $authorNames): ?int
     {
         $book = new Book();
         $book->setTitle($title);
 
-        $names = explode(',', $authorNames);
+        if ($authorNames) {
+            $names = explode(',', $authorNames);
 
-        foreach ($names as $name) {
-            $author = $this->authorManager->getOrCreateAuthorByName(trim($name));
-            $book->addAuthor($author);
+            foreach ($names as $name) {
+                $author = $this->authorManager->createAuthorByName(trim($name));
+                $book->addAuthor($author);
+            }
         }
+
+        if ($existedAuthors) {
+            $ids = explode(',', $existedAuthors);
+
+            foreach ($ids as $id) {
+                try {
+                    $author = $this->authorManager->getAuthorById((int)$id);
+                } catch (\Exception) {
+                    throw new \InvalidArgumentException(sprintf('Invalid id "%s"', $id));
+                }
+
+                $book->addAuthor($author);
+            }
+        }
+
 
         $this->entityManager->persist($book);
         $this->entityManager->flush();
@@ -68,10 +84,11 @@ class BookManager
         return true;
     }
 
-    public function updateBook(int $bookId, ?string $title, ?string $authors): ?Book
+    public function updateBook(int $bookId, ?string $title, ?string $newAuthors, ?string $existedAuthors, ?string $deleteAuthors): ?Book
     {
         /** @var $bookRepository $bookRepository */
         $bookRepository = $this->entityManager->getRepository(Book::class);
+
         /** @var Book $book */
         $book = $bookRepository->find($bookId);
 
@@ -83,12 +100,44 @@ class BookManager
             $book->setTitle($title);
         }
 
-        if ($authors) {
-            $names = explode(',', $authors);
+        if ($newAuthors) {
+            $names = explode(',', $newAuthors);
 
             foreach ($names as $name) {
-                $author = $this->authorManager->getOrCreateAuthorByName(trim($name));
+                $author = $this->authorManager->createAuthorByName(trim($name));
                 $book->addAuthor($author);
+            }
+        }
+
+        if ($existedAuthors) {
+            $ids = explode(',', $existedAuthors);
+
+            foreach ($ids as $id) {
+                try {
+                    $author = $this->authorManager->getAuthorById((int)$id);
+                } catch (\Exception) {
+                    throw new \InvalidArgumentException(sprintf('Invalid author id "%s"', $id));
+                }
+
+                $book->addAuthor($author);
+            }
+        }
+
+        if ($deleteAuthors) {
+            $ids = explode(',', $deleteAuthors);
+
+            if (count($book->getAuthors()) <= count($ids)) {
+                throw new \InvalidArgumentException('Book should have at least one author');
+            }
+
+            foreach ($ids as $id) {
+                try {
+                    $author = $this->authorManager->getAuthorById((int)$id);
+                } catch (EntityNotFoundException) {
+                    throw new \InvalidArgumentException(sprintf('Invalid author id "%s"', $id));
+                }
+
+                $book->removeAuthor($author);
             }
         }
 
@@ -100,19 +149,11 @@ class BookManager
     /**
      * @return Book[]
      */
-    public function searchBooks(?string $title, ?string $author, int $page, int $perPage): array
+    public function searchBooksWithPagination(?string $title, ?string $author, int $page, int $perPage): array
     {
         /** @var BookRepository $bookRepository */
         $bookRepository = $this->entityManager->getRepository(Book::class);
 
-        return $bookRepository->searchBooks($title, $author, $page, $perPage);
-    }
-
-    public function getAuthors(): array
-    {
-        /** @var BookRepository $bookRepository */
-        $bookRepository = $this->entityManager->getRepository(Book::class);
-
-        return $bookRepository->getAuthors();
+        return $bookRepository->searchBooksWithPagination($title, $author, $page, $perPage);
     }
 }

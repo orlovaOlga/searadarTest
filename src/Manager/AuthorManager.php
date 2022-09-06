@@ -5,6 +5,7 @@ namespace App\Manager;
 use App\Entity\Author;
 use App\Repository\AuthorRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\EntityNotFoundException;
 
 class AuthorManager
 {
@@ -15,18 +16,25 @@ class AuthorManager
         $this->entityManager = $entityManager;
     }
 
-    public function getOrCreateAuthorByName(string $name): Author
+    public function createAuthorByName(string $name): Author
+    {
+        $author = new Author();
+        $author->setName($name);
+        $this->entityManager->persist($author);
+        $this->entityManager->flush();
+
+        return $author;
+    }
+
+    public function getAuthorById(int $id): ?Author
     {
         /** @var AuthorRepository $authorRepository */
         $authorRepository = $this->entityManager->getRepository(Author::class);
 
-        $author = $authorRepository->findOneBy(['name' => $name]);
+        $author = $authorRepository->findOneBy(['id' => $id]);
 
-        if(!$author) {
-            $author = new Author();
-            $author->setName($name);
-            $this->entityManager->persist($author);
-            $this->entityManager->flush();
+        if (!$author) {
+            throw new EntityNotFoundException('Invalid author id "%s"', $id);
         }
 
         return $author;

@@ -27,31 +27,81 @@ class BookController extends AbstractController
     }
 
     /**
-     * @Route("/add",name="add_book", methods={"POST"})
+     * @Route("/create",name="add_book", methods={"POST"})
      */
     public function createBookAction(Request $request): Response
     {
         $title = $request->request->get('title');
-        $author = $request->request->get('authors');
+        $existedAuthors = $request->request->get('choseAuthors');
+        $newAuthors = $request->request->get('addNewAuthors');
 
-        $bookId = $this->bookManager->saveBook($title, $author);
+        if (!$title) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Title is required parameter'
+            ],
+                Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$existedAuthors && !$newAuthors) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Choose existed author or add new'
+            ],
+                Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $bookId = $this->bookManager->createBook($title, $existedAuthors, $newAuthors);
+        } catch (\InvalidArgumentException $exception) {
+
+            return new JsonResponse([
+                'success' => false,
+                'message' => $exception->getMessage()
+            ],
+                Response::HTTP_BAD_REQUEST);
+        }
+
+
         [$data, $code] = $bookId === null ?
-            [['success' => false], Response::HTTP_BAD_REQUEST] :
-            [['success' => true, 'bookId' => $bookId], Response::HTTP_CREATED];
+            [
+                ['success' => false, 'message' => 'OK'],
+                Response::HTTP_BAD_REQUEST
+            ] :
+            [
+                [
+                    'success' => true,
+                    'message' => 'Book added',
+                    'bookId' => $bookId
+                ],
+                Response::HTTP_CREATED
+            ];
 
         return new JsonResponse($data, $code);
     }
 
     /**
-     * @Route("/get/{id}",name="get_book", methods={"GET"})
+     * @Route("/get/{id}",name="get_book", methods={"GET"}, requirements={"id":"\d+"})
      */
-    public function getBookByIdAction(int $id): Response
+    public function getBookByIdAction(int $bookId): Response
     {
-        $book = $this->bookManager->getBookById($id);
+        $book = $this->bookManager->getBookById($bookId);
 
         [$data, $code] = !$book ?
-            [['success' => false], Response::HTTP_NOT_FOUND] :
-            [['success' => true, 'book' => $book->toArray()], Response::HTTP_OK];
+            [
+                [
+                    'success' => false,
+                    'message' => 'There are no books with this id'
+                ],
+                Response::HTTP_NOT_FOUND
+            ] :
+            [
+                [
+                    'success' => true,
+                    'message' => 'OK',
+                    'book' => $book->toArray()
+                ],
+                Response::HTTP_OK];
 
         return new JsonResponse($data, $code);
     }
@@ -62,9 +112,24 @@ class BookController extends AbstractController
     public function deleteBookByIdAction(Request $request): Response
     {
         $bookId = $request->request->get('bookId');
+
+        if (!$bookId) {
+            return new JsonResponse(
+                [
+                    'success' => false,
+                    'message' => 'BookId is require parameter'
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         $result = $this->bookManager->deleteBookById($bookId);
 
-        [$data, $code] = [['success' => $result],
+        [$data, $code] = [
+            [
+                'success' => $result,
+                'message' => $result ? 'OK' : 'There are no books with this ID'
+            ],
             $result ? Response::HTTP_NO_CONTENT : Response::HTTP_NOT_FOUND
         ];
 
@@ -72,18 +137,47 @@ class BookController extends AbstractController
     }
 
     /**
-     * @Route("/edit",name="edit_book", methods={"POST"})
+     * @Route("/update",name="edit_book", methods={"POST"})
      */
     public function updateBookAction(Request $request): Response
     {
         $bookId = $request->request->get('bookId');
         $title = $request->request->get('title');
-        $authors = $request->request->get('authors');
-        $result = $this->bookManager->updateBook($bookId, $title, $authors);
+        $newAuthors = $request->request->get('addNewAuthors');
+        $existedAuthors = $request->request->get('choseAuthors');
+        $deleteAuthors = $request->request->get('deleteAuthors');
+
+        if (!$bookId) {
+            return new JsonResponse(
+                [
+                    'success' => false,
+                    'message' => 'bookId is required parameter'
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        try {
+            $result = $this->bookManager->updateBook($bookId, $title, $newAuthors, $existedAuthors, $deleteAuthors);
+            $isUpdated = $result !== null;
+        } catch (\Exception $e) {
+
+            return new JsonResponse(
+                [
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ],
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
 
         return new JsonResponse(
-            ['success' => $result !== null],
-            ($result !== null) ? Response::HTTP_OK : Response::HTTP_NOT_FOUND
+            [
+                'success' => $isUpdated,
+                'message' => $isUpdated ? 'OK' : 'Book was not updated, check parameters'
+            ],
+            $isUpdated ? Response::HTTP_OK : Response::HTTP_NOT_FOUND
         );
     }
 
@@ -98,14 +192,16 @@ class BookController extends AbstractController
         $page = $request->query->get('page') ?? 1;
 
         if ($page < 1) {
-            return new JsonResponse([
-                'success' => false,
-                'message' => 'page parameter should be above 0'
-            ],
-                Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(
+                [
+                    'success' => false,
+                    'message' => 'page parameter should be above 0'
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
         }
 
-        $books = $this->bookManager->searchBooks($title, $author, $page, $perPage ?? BookManager::DEFAULT_PAGINATION_LIMIT);
+        $books = $this->bookManager->searchBooksWithPagination($title, $author, $page, $perPage ?? BookRepository::DEFAULT_PAGINATION_LIMIT);
 
         [$data, $code] = !$books ?
             [
@@ -118,8 +214,10 @@ class BookController extends AbstractController
             [
                 [
                     'success' => true,
+                    'message' => 'OK',
                     'books' => array_map(static fn(Book $book) => $book->toArray(), $books)
-                ], Response::HTTP_OK
+                ],
+                Response::HTTP_OK
             ];
 
         return new JsonResponse($data, $code);
@@ -128,7 +226,7 @@ class BookController extends AbstractController
     /**
      * @Route("/random",name="get_random_book", methods={"GET"})
      */
-    public function getRandomBookAction(Request $request, EntityManagerInterface $entityManager): Response
+    public function getRandomBookAction(EntityManagerInterface $entityManager): Response
     {
         /** @var BookRepository $bookRepository */
         $bookRepository = $entityManager->getRepository(Book::class);
@@ -138,14 +236,17 @@ class BookController extends AbstractController
             [
                 [
                     'success' => false,
+                    'message' => 'There are no books in collection'
                 ],
                 Response::HTTP_NOT_FOUND
             ] :
             [
                 [
                     'success' => true,
+                    'message' => 'OK',
                     'book' => $book->toArray()
-                ], Response::HTTP_OK
+                ],
+                Response::HTTP_OK
             ];
 
         return new JsonResponse($data, $code);
@@ -154,7 +255,7 @@ class BookController extends AbstractController
     /**
      * @Route("/authors",name="get_authors_list", methods={"GET"})
      */
-    public function getAuthorsListAction(Request $request, EntityManagerInterface $entityManager): Response
+    public function getAuthorsListAction(EntityManagerInterface $entityManager): Response
     {
         /** @var AuthorRepository $authorRepository */
         $authorRepository = $entityManager->getRepository(Author::class);
@@ -162,8 +263,21 @@ class BookController extends AbstractController
         $authorList = $authorRepository->getAuthorList();
 
         [$data, $code] = $authorList === null ?
-            [['success' => false], Response::HTTP_NOT_FOUND] :
-            [['success' => true, 'authors' => $authorList], Response::HTTP_OK];
+            [
+                [
+                    'success' => false,
+                    'message' => 'There are no authors in collection'
+                ],
+                Response::HTTP_NOT_FOUND
+            ] :
+            [
+                [
+                    'success' => true,
+                    'message' => 'OK',
+                    'authors' => $authorList
+                ],
+                Response::HTTP_OK
+            ];
 
         return new JsonResponse($data, $code);
     }
