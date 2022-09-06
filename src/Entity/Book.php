@@ -28,7 +28,7 @@ class Book
     private int $id;
 
     /**
-     * @ORM\Column(type="string", length=255)
+     * @ORM\Column(type="string", length=255, nullable=false)
      */
     private string $title;
 
@@ -102,7 +102,7 @@ class Book
     public function removeAuthor(Author $author): self
     {
         if($this->hasAuthor($author)){
-            $this->authors->remove($author);
+            $this->authors->removeElement($author);
         }
 
         return $this;

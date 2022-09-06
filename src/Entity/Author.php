@@ -28,7 +28,7 @@ class Author
     private int $id;
 
     /**
-     * @ORM\Column(type="string", length=255)
+     * @ORM\Column(type="string", length=255, nullable=false)
      *
      */
     private string $name;
@@ -36,7 +36,7 @@ class Author
     /**
      * @var ArrayCollection
      *
-     * @ORM\ManyToMany(targetEntity="Book", mappedBy="author")
+     * @ORM\ManyToMany(targetEntity="Book", mappedBy="authors")
      */
     private $books;
 
@@ -57,7 +57,6 @@ class Author
         return $this->id;
     }
 
-
     public function getName(): string
     {
         return $this->name;
@@ -68,11 +67,6 @@ class Author
         $this->name = $name;
 
         return $this;
-    }
-
-    public function getBooks(): Collection
-    {
-        return $this->books;
     }
 
     public function getCreatedAt(): DateTime {
