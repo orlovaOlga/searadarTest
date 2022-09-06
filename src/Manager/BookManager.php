@@ -13,16 +13,26 @@ class BookManager
 
     private EntityManagerInterface $entityManager;
 
-    public function __construct(EntityManagerInterface $entityManager)
+    private AuthorManager $authorManager;
+
+    public function __construct(EntityManagerInterface $entityManager, AuthorManager $authorManager)
     {
         $this->entityManager = $entityManager;
+        $this->authorManager = $authorManager;
     }
 
-    public function saveBook(string $title, string $author): ?int
+    public function saveBook(string $title, string $authorNames): ?int
     {
         $book = new Book();
         $book->setTitle($title);
-        $book->setAuthor($author);
+
+        $names = explode(',', $authorNames);
+
+        foreach ($names as $name) {
+            $author = $this->authorManager->getOrCreateAuthorByName(trim($name));
+            $book->addAuthor($author);
+        }
+
         $this->entityManager->persist($book);
         $this->entityManager->flush();
 
@@ -58,7 +68,7 @@ class BookManager
         return true;
     }
 
-    public function updateBook(int $bookId, ?string $title, ?string $author): ?Book
+    public function updateBook(int $bookId, ?string $title, ?string $authors): ?Book
     {
         /** @var $bookRepository $bookRepository */
         $bookRepository = $this->entityManager->getRepository(Book::class);
@@ -73,8 +83,13 @@ class BookManager
             $book->setTitle($title);
         }
 
-        if ($author) {
-            $book->setAuthor($author);
+        if ($authors) {
+            $names = explode(',', $authors);
+
+            foreach ($names as $name) {
+                $author = $this->authorManager->getOrCreateAuthorByName(trim($name));
+                $book->addAuthor($author);
+            }
         }
 
         $this->entityManager->flush();
@@ -91,5 +106,13 @@ class BookManager
         $bookRepository = $this->entityManager->getRepository(Book::class);
 
         return $bookRepository->searchBooks($title, $author, $page, $perPage);
+    }
+
+    public function getAuthors(): array
+    {
+        /** @var BookRepository $bookRepository */
+        $bookRepository = $this->entityManager->getRepository(Book::class);
+
+        return $bookRepository->getAuthors();
     }
 }

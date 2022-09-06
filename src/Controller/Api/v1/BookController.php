@@ -2,8 +2,10 @@
 
 namespace App\Controller\Api\v1;
 
+use App\Entity\Author;
 use App\Entity\Book;
 use App\Manager\BookManager;
+use App\Repository\AuthorRepository;
 use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,7 +32,8 @@ class BookController extends AbstractController
     public function createBookAction(Request $request): Response
     {
         $title = $request->request->get('title');
-        $author = $request->request->get('author');
+        $author = $request->request->get('authors');
+
         $bookId = $this->bookManager->saveBook($title, $author);
         [$data, $code] = $bookId === null ?
             [['success' => false], Response::HTTP_BAD_REQUEST] :
@@ -61,10 +64,11 @@ class BookController extends AbstractController
         $bookId = $request->request->get('bookId');
         $result = $this->bookManager->deleteBookById($bookId);
 
-        return new JsonResponse(
-            ['success' => $result],
+        [$data, $code] = [['success' => $result],
             $result ? Response::HTTP_NO_CONTENT : Response::HTTP_NOT_FOUND
-        );
+        ];
+
+        return new JsonResponse($data, $code);
     }
 
     /**
@@ -74,8 +78,8 @@ class BookController extends AbstractController
     {
         $bookId = $request->request->get('bookId');
         $title = $request->request->get('title');
-        $author = $request->request->get('author');
-        $result = $this->bookManager->updateBook($bookId, $title, $author);
+        $authors = $request->request->get('authors');
+        $result = $this->bookManager->updateBook($bookId, $title, $authors);
 
         return new JsonResponse(
             ['success' => $result !== null],
@@ -91,7 +95,7 @@ class BookController extends AbstractController
         $title = $request->query->get('title');
         $author = $request->query->get('author');
         $perPage = $request->query->get('perPage');
-        $page = $request->query->get('page');
+        $page = $request->query->get('page') ?? 1;
 
         if ($page < 1) {
             return new JsonResponse([
@@ -101,7 +105,7 @@ class BookController extends AbstractController
                 Response::HTTP_BAD_REQUEST);
         }
 
-        $books = $this->bookManager->searchBooks($title, $author, $page ?? 1, $perPage ?? BookManager::DEFAULT_PAGINATION_LIMIT);
+        $books = $this->bookManager->searchBooks($title, $author, $page, $perPage ?? BookManager::DEFAULT_PAGINATION_LIMIT);
 
         [$data, $code] = !$books ?
             [
@@ -143,6 +147,23 @@ class BookController extends AbstractController
                     'book' => $book->toArray()
                 ], Response::HTTP_OK
             ];
+
+        return new JsonResponse($data, $code);
+    }
+
+    /**
+     * @Route("/authors",name="get_authors_list", methods={"GET"})
+     */
+    public function getAuthorsListAction(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        /** @var AuthorRepository $authorRepository */
+        $authorRepository = $entityManager->getRepository(Author::class);
+
+        $authorList = $authorRepository->getAuthorList();
+
+        [$data, $code] = $authorList === null ?
+            [['success' => false], Response::HTTP_NOT_FOUND] :
+            [['success' => true, 'authors' => $authorList], Response::HTTP_OK];
 
         return new JsonResponse($data, $code);
     }

@@ -3,7 +3,9 @@
 namespace App\Repository;
 
 use App\Entity\Author;
+use App\Entity\Book;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -39,28 +41,17 @@ class AuthorRepository extends ServiceEntityRepository
         }
     }
 
-//    /**
-//     * @return Author[] Returns an array of Author objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('a')
-//            ->andWhere('a.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('a.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
+    public function getAuthorList(): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
 
-//    public function findOneBySomeField($value): ?Author
-//    {
-//        return $this->createQueryBuilder('a')
-//            ->andWhere('a.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+        $sql = "SELECT author_to_book.author_id, a.name, COUNT(book_id) as books_count
+            FROM author_to_book
+            LEFT JOIN author a on author_to_book.author_id = a.id
+            GROUP BY author_to_book.author_id";
+
+        $stmt = $conn->prepare($sql);
+        return $stmt->executeQuery()->fetchAllAssociative();
+    }
+
 }

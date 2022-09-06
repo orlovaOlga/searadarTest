@@ -60,7 +60,7 @@ class Book
 
     public function __construct()
     {
-        $this->author = new ArrayCollection();
+        $this->authors = new ArrayCollection();
     }
 
     public function getId(): int
